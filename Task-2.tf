@@ -7,11 +7,10 @@ provider "aws"{
 // Creating Key Pair
 resource "tls_private_key" "myKey" {
   algorithm = "RSA"
+  rsa_bits = "4096"
 }
 
-module "key_pair" {
-  source = "terraform-aws-modules/key-pair/aws"
-
+resource "aws_key_pair" "generated_key" {
   key_name   = "myKey"
   public_key = tls_private_key.myKey.public_key_openssh
 }
@@ -24,14 +23,12 @@ resource "aws_security_group" "SecurityGroup" {
   vpc_id      = "vpc-b6e3ffde"
 
   ingress {
-    description = "TLS from VPC"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
   ingress {
-    description = "TLS from VPC"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -42,8 +39,7 @@ resource "aws_security_group" "SecurityGroup" {
     to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-  }
-  
+  }  
   ingress {
     description = "Allow EFS communication with EC2"
     from_port   = 2049
@@ -51,14 +47,12 @@ resource "aws_security_group" "SecurityGroup" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
   tags = {
     Name = "SecurityGroup"
   }
@@ -69,7 +63,7 @@ resource "aws_instance" "EC2Instance" {
   depends_on = [ aws_security_group.SecurityGroup ]
   ami           = "ami-0447a12f28fddb066"
   instance_type = "t2.micro"
-  key_name = "myKey"
+  key_name = aws_key_pair.generated_key.key_name
   security_groups = [ "${aws_security_group.SecurityGroup.name}"]
 
   connection{
@@ -136,7 +130,7 @@ resource "null_resource" "MountingAndClonning" {
 
  //S3 bucket  
  resource "aws_s3_bucket" "myBucket" {
-  bucket = "task581"
+  bucket = "task58"
   acl    = "public-read"
   tags = {
     Name        = "myBucket"
@@ -157,13 +151,11 @@ depends_on = [aws_s3_bucket.myBucket,
 		null_resource.DownloadImagesFromGithub
     	     ]
   bucket = aws_s3_bucket.myBucket.bucket
-  key    = "image2.jpg"
-  source = "C:/Users/LENOVO/Desktop/Terra/Task-2/image/image2.jpg"
+  key    = "image.jpg"
+  source = "C:/Users/LENOVO/Desktop/Terra/Task-2/image/image.jpg"
   content_type = "image/jpg"
   acl = "public-read"
 }
-
-
 //CloudFront
 resource "aws_cloudfront_distribution" "s3_distribution" {
   origin {
@@ -190,7 +182,6 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
         forward = "none"
       }
     }
-
     viewer_protocol_policy = "allow-all"
     min_ttl                = 0
     default_ttl            = 3600
